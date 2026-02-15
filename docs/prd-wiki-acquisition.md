@@ -13,11 +13,20 @@ This PRD addresses section **A1 — Wiki rule acquisition** from the parent PRD 
 3. **Entity ontology + task rails as hard constraints** — the existing Pydantic schema (`policy.py`) and the benchmark task list (`rules/tasks.md`) are
    converted into two mandatory rails that bound what the agent may extract and why.
 
+Wiki immutability and digest boundary:
+
+- Within a single task run, the wiki is treated as immutable input.
+- Across task runs/sessions, wiki may change only when the environment signals a digest change (e.g., `UserContext.wiki_sha1`).
+- If `wiki_sha1` is available, it is the only supported mechanism for deciding whether the wiki corpus has changed.
+
 ## 2. Inputs
 
 ### 2.1 Wiki corpus
 
 Markdown pages under `AgenticSolver/wiki/` (~20 files, 2–10 KB each) plus `wiki_meta.json`.
+
+If an environment exposes wiki APIs (`list_wiki`, `load_wiki`, `search_wiki`, `update_wiki`), the wiki corpus is treated as static within a session bounded by
+`UserContext.wiki_sha1` (see `prd-api-acquisition.md`).
 
 ### 2.2 Entity ontology (Schema rail)
 
@@ -90,6 +99,11 @@ Every emitted rule must satisfy:
 2. **Source integrity** — `source.page` exists in wiki; `source.quote` is a substring of the page content under `source.anchor`.
 3. **Task coverage** — `covers_tasks` is non-empty (at least one task family needs this rule).
 4. **No invention** — every enum value, threshold, or formula must be quote-backed.
+
+Immutability constraint:
+
+- Rule acquisition must not rely on observing mid-task wiki updates. Any wiki update performed as part of a task is treated as a write side-effect and must not
+  be assumed to change policy decisions within the same task run.
 
 ## 4. Architecture: PolicyAcquisitionAgent on ADK
 
@@ -203,6 +217,14 @@ IndexAgent → GateAgent → CompileAgent → ValidateAgent → ExportAgent
 - Each pipeline run is a single ADK session via `InMemorySessionService`.
 - Session state stores: ontology snapshot, task rail, heading index, candidate queue, compiled rules, validation diagnostics.
 - **Rewind** capability: re-run from any stage with modified parameters without re-reading wiki.
+
+Wiki updates during tasks (normative):
+
+- Some benchmark tasks require `update_wiki`.
+- Such updates are executed immediately by the validator during plan execution.
+- The update must be stored as an entity/event (e.g., `WikiArticle` version in SQL or trace), but it must not retroactively rewrite the policy representation used
+  for the current task run.
+- A subsequent task run may re-trigger rule acquisition only if `wiki_sha1` indicates the corpus changed.
 
 ## 5. Rails specification
 

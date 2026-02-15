@@ -8,6 +8,11 @@ Define the architecture and deterministic requirements for **Process A2** and **
 - **A3 (deterministic snapshot acquisition)**: build deterministic, per-run snapshots of core entities and store them in a session SQLite database, with a
   streaming mode for large datasets.
 
+System boundary:
+
+- The SQL snapshot is the default and authoritative data substrate for computations.
+- The benchmark data is assumed static within a single task run.
+
 This PRD treats the existing files as **etalons (target artifacts)** that must be reproducible via automated Process A (no human intervention):
 
 - `AgenticSolver/agent/erc3-prod/policy.py`
@@ -62,6 +67,11 @@ This PRD treats the existing files as **etalons (target artifacts)** that must b
 - **Runtime context**:
 	- `who_am_i()` response provides `today` and `wiki_sha1` and is the sole source of “current date”.
 
+Additional invariants:
+
+- `who_am_i()` is the only authoritative identity source (authorization context).
+- Any non-snapshotted API fetches performed during validation must be treated as evidence and materialized into SQL before final computations.
+
 ## 4. Outputs
 
 ### 4.1 A2 Output: API composition map
@@ -81,6 +91,11 @@ A session SQLite database (fresh per run) stored under `./.jbeval/` containing:
 - Normalized entity tables (employees, customers, projects, time entries, time summaries).
 - Derived/normalized relational tables (project team allocations; employee skills/wills).
 - Metadata table(s) describing acquisition configuration and provenance.
+
+Authoritativeness and on-demand fetch:
+
+- Snapshot tables are authoritative for deterministic computation.
+- If the snapshot is insufficient to resolve a task, `validate()` may execute additional API calls and then persist/materialize their results into SQL.
 
 ## 5. Requirements — A2: API capability acquisition
 
@@ -180,7 +195,8 @@ Requirements:
 
 ### 7.2 MemoryErc3Client (etalon + SQL snapshot responsibility)
 
-**Goal**: prefetch mandatory entity snapshots for a run and expose a cached `UserContext`, while also persisting the snapshot in the session SQLite DB.
+**Goal**: provide a fast, cached facade for testing and small datasets by prefetching entity snapshots for a run and exposing a cached `UserContext`, while also
+persisting the snapshot in the session SQLite DB.
 
 Mandatory prefetched data (wiki excluded):
 
@@ -188,6 +204,9 @@ Mandatory prefetched data (wiki excluded):
 - Employees via paging
 - Customers via paging
 - Projects via paging
+
+Task-derived / optional prefetched data (depends on dataset size and selected client):
+
 - Time entries via paging (task-derived date range)
 - Time summaries (by project and by employee; same date range)
 
@@ -203,6 +222,12 @@ Additional requirements:
 - **SQL snapshot write-through**:
 	- after each page is fetched, buffer rows and flush to SQLite per policy batch sizes.
 	- never require holding the full entity set in memory to persist it.
+
+Caching scope (normative):
+
+- Wiki content is static per benchmark session (bounded by `wiki_sha1`).
+- Non-wiki entity snapshots are treated as per-task-run (fresh DB per run).
+- In-memory caching to avoid repeated remote calls is allowed within a single task run.
 
 ## 8. Requirements — A3: session snapshot persistence
 
@@ -265,6 +290,11 @@ Requirements:
 	- `who_am_i` digest fields (`today`, `wiki_sha1`)
 	- selected `date_from/date_to`
 	- `SnapshotAcquisitionPolicy` serialized form
+
+On-demand fetch during validation:
+
+- If `validate()` needs additional data beyond the prefetched snapshot, it may call the same primitive API methods and then insert the returned entities into SQL
+  (either into existing normalized tables or into validator-owned derived tables).
 
 ## 10. Deterministic task-derived date range detection
 
