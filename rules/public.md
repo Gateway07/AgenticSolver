@@ -1,6 +1,6 @@
 <kind=wiki id=index.md>
 Welcome to the internal knowledge base for **Bellini Industria Vernici S.p.A.** (“**Bellini Coatings**”).
-This wiki is the primary reference for how we work as a company: who we are, what we make, how we are organised, and how to use our internal systems.
+This wiki is the primary reference for how we work as a company: who we are, what we make, how we are organized, and how to use our internal systems.
 
 It is also the main source of context for our **internal chatbot**, which reads and searches these pages.
 </kind=wiki id=index.md>
@@ -23,14 +23,14 @@ The main systems visible to most employees are:
 ## Design principles
 
 1. **Single source of truth**
-
-   * Each type of information has a “home” system (e.g. customer data in CRM, people data in employee registry).
+	
+	* Each type of information has a “home” system (e.g. customer data in CRM, people data in employee registry).
 2. **Stability over novelty**
-
-   * The core systems are old but extremely stable. We minimise risky changes.
+	
+	* The core systems are old but extremely stable. We minimize risky changes.
 3. **Progressive modernisation**
-
-   * New initiatives (like the chatbot) sit **on top of** existing systems rather than replacing them immediately.
+	
+	* New initiatives (like the chatbot) sit **on top of** existing systems rather than replacing them immediately.
 
 ## Relationship between systems
 
@@ -48,31 +48,32 @@ At a high level:
 
 # Chatbot Interface
 
-The **chatbot** is a modern, conversational interface that sits on top of Bellini’s legacy systems (CRM, project registry, employee registry, time tracking and wiki). It allows employees to **ask questions in natural language** and, in some cases, perform simple actions.
+The **chatbot** is a modern, conversational interface that sits on top of Bellini’s legacy systems (CRM, project registry, employee registry, time tracking and
+wiki). It allows employees to **ask questions in natural language** and, in some cases, perform simple actions.
 
 ## What the chatbot can do
 
 * Answer questions about:
-
-  * Customers and their status.
-  * Projects, teams and workloads.
-  * Employees, departments, skills and locations.
-  * Time tracking summaries for employees, projects and customers.
-  * Processes and guidelines documented in the wiki.
+	
+	* Customers and their status.
+	* Projects, teams and workloads.
+	* Employees, departments, skills and locations.
+	* Time tracking summaries for employees, projects and customers.
+	* Processes and guidelines documented in the wiki.
 * Perform selected actions (depending on permissions):
-
-  * Update employee info (location, department, skills and wills, notes).
-  * Update project team or status.
-  * Create or update time entries.
+	
+	* Update employee info (location, department, skills and wills, notes).
+	* Update project team or status.
+	* Create or update time entries.
 
 ## Principles for chatbot usage
 
-* Treat the chatbot as a **helpful assistant**, not as a replacement for human judgement.
+* Treat the chatbot as a **helpful assistant**, not as a replacement for human judgment.
 * Use it to:
-
-  * Discover information faster.
-  * Navigate systems without manual searches.
-  * Get explanations of processes and terminology.
+	
+	* Discover information faster.
+	* Navigate systems without manual searches.
+	* Get explanations of processes and terminology.
 * If an answer seems wrong or incomplete, verify in the underlying system or contact the relevant system owner (Sales, HR, IT, etc.).
 
 The chatbot is a key part of Bellini’s **pragmatic digitalisation strategy**: modern user experience on top of robust but old core systems.
@@ -100,7 +101,8 @@ For each employee:
 
 ## Who can see what?
 
-Access is controlled by **system roles** and internal policies. The chatbot respects these rules and will not reveal confidential information (such as exact salaries) to unauthorised users.
+Access is controlled by **system roles** and internal policies. The chatbot respects these rules and will not reveal confidential information (such as exact
+salaries) to unauthorised users.
 </kind=wiki id=systems_employee_registry.md>
 
 <kind=wiki id=systems_crm.md>
@@ -126,27 +128,27 @@ For each **customer company**:
 For each **opportunity / relationship** (at company level):
 
 * The **deal phase**:
-
-  * `idea` – new lead, early conversation.
-  * `exploring` – deeper exploration, early trials.
-  * `active` – ongoing projects, regular business.
-  * `paused` – no current activity, but not lost.
-  * `archived` – relationship closed or no realistic future business.
+	
+	* `idea` – new lead, early conversation.
+	* `exploring` – deeper exploration, early trials.
+	* `active` – ongoing projects, regular business.
+	* `paused` – no current activity, but not lost.
+	* `archived` – relationship closed or no realistic future business.
 * Optional descriptive notes and tags.
 
 ## Linking to other systems
 
 * **Project registry:**
-
-  * Projects always reference a **customer ID** from the CRM (unless internal).
+	
+	* Projects always reference a **customer ID** from the CRM (unless internal).
 * **Time tracking:**
-
-  * Time entries for customer work show both the **customer** and the **project**, enabling customer profitability and effort analysis.
+	
+	* Time entries for customer work show both the **customer** and the **project**, enabling customer profitability and effort analysis.
 * **Wiki and chatbot:**
-
-  * Wiki pages may describe key accounts or reference successful case studies.
-  * The chatbot provides quick overviews of customer status, contacts, projects and time summaries.
-    </kind=wiki id=systems_crm.md>
+	
+	* Wiki pages may describe key accounts or reference successful case studies.
+	* The chatbot provides quick overviews of customer status, contacts, projects and time summaries.
+	  </kind=wiki id=systems_crm.md>
 
 <kind=wiki id=systems_project_registry.md>
 
@@ -170,22 +172,23 @@ Each project has:
 * Linked customer (if applicable)
 * Description / brief
 * Status (aligned with deal phases):
-
-  * `idea`
-  * `exploring`
-  * `active`
-  * `paused`
-  * `archived`
+	
+	* `idea`
+	* `exploring`
+	* `active`
+	* `paused`
+	* `archived`
 * Project manager (employee ID)
 * Team and workloads:
-
-  * Which employees are assigned
-  * Their role (Lead, Engineer, Designer, QA, Ops, Other)
-  * Their approximate time slice (fraction of an FTE)
+	
+	* Which employees are assigned
+	* Their role (Lead, Engineer, Designer, QA, Ops, Other)
+	* Their approximate time slice (fraction of an FTE)
 
 ## Workload
 
-Employee workload in Bellini Coatings is determined by analysing **their allocated FTE slices across all active projects**. Each project stores, as part of its team definition, a list of `Workload` entries:
+Employee workload in Bellini Coatings is determined by analysing **their allocated FTE slices across all active projects**. Each project stores, as part of its
+team definition, a list of `Workload` entries:
 
 * `Employee` – the employee ID
 * `TimeSlice` – the fraction of a full-time equivalent (FTE) that the employee is expected to contribute to that project (e.g. 0.1, 0.3, 0.5, 1.0)
@@ -213,28 +216,28 @@ Each time entry contains:
 * Notes (short free text)
 * Billable flag (billable vs non‑billable)
 * Status:
-
-  * `draft`
-  * `submitted`
-  * `approved`
-  * `invoiced`
-  * `voided`
+	
+	* `draft`
+	* `submitted`
+	* `approved`
+	* `invoiced`
+	* `voided`
 
 ## Why we track time
 
 * **Customer profitability**
-
-  * Understand how much effort is invested in supporting each customer.
+	
+	* Understand how much effort is invested in supporting each customer.
 * **Project costing**
-
-  * Analyse efforts spent on different project types and stages.
+	
+	* Analyze efforts spent on different project types and stages.
 * **Workload monitoring**
-
-  * Identify overloaded employees or teams.
+	
+	* Identify overloaded employees or teams.
 * **Internal improvements**
-
-  * Quantify time spent on non‑customer initiatives (e.g. training, digital projects).
-    </kind=wiki id=systems_time_tracking_and_reporting.md>
+	
+	* Quantify time spent on non‑customer initiatives (e.g. training, digital projects).
+	  </kind=wiki id=systems_time_tracking_and_reporting.md>
 
 <kind=wiki id=systems_knowledge_base.md>
 
@@ -246,10 +249,10 @@ The **knowledge base** (this wiki) is the central place for **processes, guideli
 
 * The wiki is **not** a replacement for transactional data (e.g. CRM entries, project records, time logs).
 * Instead, it documents:
-
-  * How to use systems.
-  * Why certain processes exist.
-  * What standards and best practices apply.
+	
+	* How to use systems.
+	* Why certain processes exist.
+	* What standards and best practices apply.
 
 ## Good practices
 

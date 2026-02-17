@@ -19,7 +19,7 @@ Response = Any
 Task = Any
 
 
-def solve(task: Task, ctx: Context, experience: Experience):
+def propose(task: Task, ctx: Context, experience: Experience):
     """
     Returns:
       (1) response
@@ -132,19 +132,9 @@ def solve(task: Task, ctx: Context, experience: Experience):
     """
 
     # ------------------------------------------------------------
-    # 9) Package certificate (final)
+    # 9) Package plan (final)
     # ------------------------------------------------------------
-    cert = {
-        "pc_version": snapshot.pc_version,  # or global compiled policy version
-        "task_text": task_text,
-        "response": response,
-        "execution_trace": tracing,
-        "derived_facts": df,
-        "policy_refs": policy_refs,
-        "commitments": commitments,
-    }
-
-    return response, cert
+    return Plan(request=task, execution_trace=tracing, facts=df, policy_refs=policy_refs, commitments=commitments)
 
 
 # ============================================================
@@ -162,7 +152,7 @@ def determine_mode(ctx: Context) -> str:
 
 def interpret(task: Task, experience: Experience) -> TaskIntent:
     """
-    - This is an semantic parsing step.
+    - This is a semantic parsing step.
     - Output should be a small structured object, e.g.:
       intent.kind: "lookup_employee" | "list_project_employees" | "log_time" | ...
       intent.entities: {names, identifiers, dates, etc.}

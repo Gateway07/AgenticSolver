@@ -15,14 +15,8 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
 
+from AgenticSolver.agent.abstract import Decision, Plan
 from abstract import InputTask, OutputResponse
-
-# For this conceptual example, we only reference these names for typing.
-# Replace with real imports from your validator module.
-validate = Any
-Verification = Any
-Certificate = Any
-Plan = Any
 
 
 # ============================================================
@@ -56,7 +50,7 @@ class ExperienceStore(BaseModel):
     diag_stats: Dict[str, int] = Field(default_factory=dict)
     diagnostics: List[Dict[str, Any]] = Field(default_factory=list)
 
-    def update_from(self, result: Verification) -> None:
+    def update_from(self, result: Decision) -> None:
         """
         Deterministically update stats and patches from validator diagnostics.
 
@@ -82,13 +76,53 @@ def propose(task: InputTask, experience: ExperienceStore) -> Plan:
     pass
 
 
+def execute_and_validate(task: InputTask, plan: Plan) -> Decision:
+    """
+    Deterministic inverse_solve validator.
+
+    Functional dependencies:
+      - Inputs: task, plan.
+      - plan is produced by propose().
+      - policy is a static compiled artifact (from Wiki).
+
+    Determinism responsibility:
+      - This function MUST be deterministic (pure relative to its inputs).
+      - It MUST NOT call LLM.
+      - It SHOULD NOT call ERC3 API; validation is based on trace + replay.
+    """
+    violations: List[violations] = []
+
+    # Stage 0: Schema / basic consistency
+
+    # Stage 1: ExecutionTrace integrity
+
+    # Stage 2: Response Contract checks
+
+    # Stage 3: DerivedFacts replay (verification)
+
+    # Stage 4: Policy compliance for referenced clauses
+
+    # Optional: mandatory baseline policy checks could be enforced here
+    # (e.g., always apply public-mode forbids). This stays deterministic.
+
+    # Stage 5: Links grounding
+
+    # Stage 6: Minimality checks for escape-hatch outcomes
+
+    # Stage 7: Write safety (optional placeholder)
+    # If you record write calls in trace.req.method != "GET/POST read", you can enforce read-after-write here.
+
+    ok = len(violations) == 0
+    return Decision(ok=ok, violations=violations)
+
+
 # ============================================================
 # Main loop orchestrator
 # ============================================================
 
 def main(task: InputTask, experience: ExperienceStore) -> OutputResponse:
     """
-    External orchestrator main loop.
+    Orchestrator main loop.
 
     Args:
         task: input task
@@ -100,7 +134,7 @@ def main(task: InputTask, experience: ExperienceStore) -> OutputResponse:
     Key property:
       - Deterministic control flow owned by this function (trusted).
       - LLM is only used inside propose().
-      - validate() is deterministic "trusted kernel".
+      - execute_and_validate() is deterministic "trusted kernel".
     """
 
     response = None
@@ -110,7 +144,7 @@ def main(task: InputTask, experience: ExperienceStore) -> OutputResponse:
         plan = propose(task, experience)
 
         # 2) Deterministic validation
-        decision = validate(task, plan)
+        decision = execute_and_validate(task, plan)
 
         if decision.ok:
             return decision.response
