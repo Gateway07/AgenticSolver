@@ -133,7 +133,7 @@ class Commitment(BaseModel):
     claims: List[Claim] = Field(..., description="What should be considered proven.")
 
 
-class Plan(BaseModel):
+class SolutionPlan(BaseModel):
     """
     Bundle produced by propose():
       - execution_trace: what should be called
@@ -183,6 +183,6 @@ class Violation(BaseModel):
 class Decision(BaseModel):
     ok: bool
     response: OutputResponse
-    plan: Plan = Field(..., description="Executed and validated plan provided by propose()")
+    plan: SolutionPlan = Field(..., description="Executed and validated plan provided by propose()")
     verification: List[Violation] = Field(...,
                                           description="List of violations after verification which should be included in the experience store")

@@ -294,7 +294,7 @@ def build_response(decision, df, et, ctx) -> Response:
 # Commitments builders (LLM must provide checkable structure)
 # ============================================================
 
-def build_trace_binding_commitments(df, et, response):
+def build_commitments(df, et, response):
     """
     Purpose:
       - For each critical fact used in response/links, bind it to:
@@ -306,77 +306,3 @@ def build_trace_binding_commitments(df, et, response):
       - Verifies that referenced call_id exists, selector is valid, and output matches.
     """
     return [Commitment(kind="trace_binding", claims=[...])]
-
-
-def build_link_grounding_commitments(response, et, df, ctx):
-    """
-    Purpose:
-      - Prove each (kind,id) in response.links exists in et.artifacts.
-      - Prove it is relevant to the message (optional but recommended).
-      - Enforce outcome constraints: links empty for denied_security/ok_not_found.
-
-    Validator:
-      - Checks membership in et.artifacts + policy restrictions.
-    """
-    return [Commitment(kind="link_grounding", claims=[...])]
-
-
-def build_policy_compliance_commitments(response, ctx, df, policy_refs):
-    """
-    Purpose:
-      - Prove compliance with key policies:
-          * public redaction constraints
-          * data classification restrictions (sensitive/highly)
-          * write prerequisites (e.g., required fields)
-      - Reference the specific policy clause IDs that justify the decision.
-
-    Validator:
-      - Evaluates referenced clauses under env(ctx, df, response) deterministically.
-    """
-    return [Commitment(kind="policy_compliance", claims=[...])]
-
-
-def build_noninterference_commitments(response, ctx):
-    """
-    Purpose:
-      - Assert that response message does not contain forbidden patterns.
-      - Especially important in public mode.
-
-    Validator:
-      - Runs deterministic regex checks.
-    """
-    return [Commitment(kind="noninterference", claims=[...])]
-
-
-def build_write_safety_commitments_if_needed(intent, plan, et, df, response):
-    """
-    Purpose:
-      - If plan includes writes:
-          * prove write is authorized by policy clauses
-          * prove required fields present
-          * prove read-after-write postcondition checks exist in execution_trace
-
-    Validator:
-      - Checks ET includes write call(s) and required postcondition calls.
-    """
-    if not intent.needs_write:
-        return []
-    return [Commitment(kind="write_safety", claims=[...])]
-
-
-def build_minimality_commitment(intent, decision, ctx, df, et, response, policy_refs, plan):
-    """
-    Purpose:
-      - Prevent 'deny-bot' behavior by proving escape-hatch outcome is necessary.
-
-    Minimal deterministic structure:
-      - for_outcome: response.outcome
-      - checked_alternatives:
-          * ok_answer must be marked impossible with a reason_clause_id
-      - The reason_clause_id must be a real policy clause applicable under env.
-
-    Validator:
-      - Ensures at least ok_answer is considered and marked impossible.
-      - Ensures reason clause exists and is applicable.
-    """
-    return [Commitment(kind="minimality", for_outcome=response.outcome, checked_alternatives=[...])]

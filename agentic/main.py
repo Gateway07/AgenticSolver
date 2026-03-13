@@ -15,7 +15,7 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
 
-from AgenticSolver.agent.abstract import Decision, Plan
+from AgenticSolver.agentic.abstract import Decision, SolutionPlan, Violation
 from abstract import InputTask, OutputResponse
 
 
@@ -47,21 +47,19 @@ class ExperienceStore(BaseModel):
       - 'guidance' may be NL, but it is curated by deterministic rules/templates.
     """
     patches: List[ExperiencePatch] = Field(default_factory=list)
-    diag_stats: Dict[str, int] = Field(default_factory=dict)
+    stats: Dict[str, int] = Field(default_factory=dict)
     diagnostics: List[Dict[str, Any]] = Field(default_factory=list)
 
-    def update_from(self, result: Decision) -> None:
+    def update_from(self, results: List[Violation]) -> None:
         """
-        Deterministically update stats and patches from validator diagnostics.
-
-        Note:
-          - This should never store sensitive data; store codes + structured hints only.
-          - In a mature system, you'd maintain a ruleset mapping diag codes -> patch templates.
+        Deterministically update stats and patches from violations.
+        - This should never store sensitive data; store codes + structured hints only.
+        - In a mature system, maintain a ruleset mapping diag codes -> patch templates.
         """
         pass
 
 
-def propose(task: InputTask, experience: ExperienceStore) -> Plan:
+def propose(task: InputTask, experience: ExperienceStore) -> SolutionPlan:
     """
     LLM-driven propose function (Codex/Codex CLI).
 
@@ -76,41 +74,28 @@ def propose(task: InputTask, experience: ExperienceStore) -> Plan:
     pass
 
 
-def execute_and_validate(task: InputTask, plan: Plan) -> Decision:
+def execute_and_validate(task: InputTask, plan: SolutionPlan) -> Decision:
     """
     Deterministic inverse_solve validator.
 
     Functional dependencies:
       - Inputs: task, plan.
       - plan is produced by propose().
-      - policy is a static compiled artifact (from Wiki).
+      - policy is a static compiled artifact.
 
     Determinism responsibility:
-      - This function MUST be deterministic (pure relative to its inputs).
-      - It MUST NOT call LLM.
-      - It SHOULD NOT call ERC3 API; validation is based on trace + replay.
+      - This function MUST be deterministic (pure relative to its inputs). It MUST NOT call LLM.
+      - validation is based on trace + replay.
     """
     violations: List[violations] = []
 
-    # Stage 0: Schema / basic consistency
-
     # Stage 1: ExecutionTrace integrity
-
-    # Stage 2: Response Contract checks
 
     # Stage 3: DerivedFacts replay (verification)
 
     # Stage 4: Policy compliance for referenced clauses
 
-    # Optional: mandatory baseline policy checks could be enforced here
-    # (e.g., always apply public-mode forbids). This stays deterministic.
-
-    # Stage 5: Links grounding
-
     # Stage 6: Minimality checks for escape-hatch outcomes
-
-    # Stage 7: Write safety (optional placeholder)
-    # If you record write calls in trace.req.method != "GET/POST read", you can enforce read-after-write here.
 
     ok = len(violations) == 0
     return Decision(ok=ok, violations=violations)

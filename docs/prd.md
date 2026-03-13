@@ -1,528 +1,645 @@
-# PRD: AgenticSolver Methodology for ERC3-Style Benchmarks
+# PRD — Autonomous Framework for Unknown-In-Advance-API Benchmark Tasks
 
-## 1. Purpose
+## 0. Goal
 
-Define a methodology and target architecture to solve ERC3-style benchmark tasks (e.g. `erc3-prod`) using an AI agent with minimal human involvement.
+Build a framework that solves benchmark-style tasks with an **unknown in advance API** and **no human in the loop**.
 
 The system must:
 
-- Convert unstructured wiki + primitive external API endpoints into a deterministic, validated local knowledge base.
-- Solve tasks through a strict `propose()` / `execute_and_validate()` split:
-	- `propose(task, experience) -> plan` is LLM-driven.
-	- `execute_and_validate(task, plan) -> decision` is deterministic and trusted.
-- Improve over time via a **double optimization loop**:
-	- **Run-time**: between tasks in a single benchmark run.
-	- **Design-time**: after a benchmark run, offline.
+* start from only a raw benchmark rules HTML page URL,
+* discover structure and constraints automatically,
+* synthesize design-time artifacts,
+* assemble and execute deterministic runtime flows,
+* improve itself through closed feedback loops.
+* use Codex CLI for LLM calls
 
-## 2. Scope
+---
 
-### 2.1 In scope
+## 1. Problem Statement
 
-- Proactive information acquisition from:
-	- Local Wiki (`AgenticSolver/wiki/*.md`, and `wiki_meta.json`).
-	- External API client (`erc3.client.Erc3Client`): `who_am_i()`, `list_*()`, `search_*()`, `get_*()`, `update_*()`.
-	- Task list references (`AgenticSolver/rules/tasks.md`).
-- Entity normalization and persistence in SQL database.
-- Deterministic constraint checking using Pydantic-based validation.
-- Task-solving optimization via feedback-driven patches and evaluation metrics.
+The framework receives:
 
-### 2.2 Out of scope
+* a URL to a raw HTML page containing rules and benchmark description,
+* a fixed set of preinstalled tools (Python runtime, SQL database, bash, etc.),
+* no domain-specific code, no human annotations, no manual API integration.
 
-- Training or fine-tuning foundation models.
-- UI/UX for chat.
-- Manual curation of per-task answers (human should not craft solutions).
+The framework must autonomously:
 
-## 3. Inputs
+1. infer the task environment,
+2. derive machine-usable knowledge,
+3. synthesize executable design-time artifacts,
+4. build and execute deterministic runtime plans,
+5. learn from outcomes and improve over time.
 
-### 3.1 Wiki
+---
 
-- Markdown pages representing policies, domain facts, and system rules.
-- `wiki_meta.json` provides:
-	- A stable list of wiki files and short summaries.
-	- A benchmark task set overview.
+## 2. System Model
 
-### 3.2 External API
+The system is organized into four processes.
 
-- API surface is large and primitive. It must be composed into higher-level operations.
-- Key characteristics to plan for:
-	- Paging (`offset`, `limit`) for list/search endpoints.
-	- Mixed access constraints (some data is restricted).
+### A. Memory Acquisition
 
-Authoritative identity + time context:
+Purpose:
 
-- `who_am_i()` is the only authoritative identity source for access control and audit.
-- `who_am_i()` is the only authoritative source of the run-time date context ("today") and wiki digest fields.
+* discover sources from the initial HTML page,
+* distill domain memory from raw text and discovered documents,
+* normalize it into canonical machine-usable memory.
 
-### 3.3 Task stream
+See also: [Process A — Memory Acquisition (Detailed Plan)](./prd_acquisition.md)
 
-- Natural-language tasks, including:
-	- Paraphrases, multilingual prompts, ambiguous entities.
-	- Tasks requiring aggregation, joins, and comparisons.
-	- Tasks requiring updates (employee/project/time/wiki).
+Outputs:
 
-## 4. Outputs / Artifacts
+* source inventory,
+* domain memory,
+* runtime ontology,
+* alias maps,
+* failure catalog.
 
-### 4.1 `tools.py` (external API framework)
+### B. Design-Time Synthesis
 
-A deterministic, testable tool layer that:
+Purpose:
 
-- Wraps primitive client calls into composable operations.
-- Supports deterministic collection of complete datasets via paging (prefetch snapshots).
-- Provides typed results and uniform error handling.
+* generate and refine design-time artifacts from canonical memory and accumulated evidence.
 
-Required capabilities:
+Outputs:
 
-- **Composed queries**: e.g. “project by paraphrase -> project_id -> full project -> team -> employees -> derived aggregates”.
-- **Deterministic prefetch**: bulk load employees/projects/customers/time entries where needed.
-- **Caching**: avoid repeated remote calls inside the same task/round.
-- **Audit trail**: record each call (request params, response hashes/IDs) for validation.
+* typed intermediate representation (IR),
+* primitive candidates,
+* search hints,
+* templates,
+* compiled code artifacts (Python / SQL / Rego),
+* promoted registries.
 
-### 4.2 `policy.py` (policy + entities + constraints)
+### C. Runtime Planning
 
-A deterministic validation kernel that:
+Purpose:
 
-- Encodes authoritative rules distilled from wiki.
-- Defines Pydantic entity models and cross-entity invariants.
-- Produces structured diagnostics for optimization.
+* ground a task into typed control signals,
+* build a deterministic flow from allowed primitives and active registries.
 
-It must represent:
+Outputs:
 
-- Input task contract
-- Entities (examples): `Employee`, `Customer`, `Project`, `TimeEntry`, `WikiPage`, plus supporting types (`SkillLevel`, workload allocations, deal phases).
-- Response contract:
-	- Outcome format and required structure
-	- Additional/optional link structures
-	- Deterministic outcome-selection rules (e.g., `ok_not_found` vs `none_clarification_needed` vs `none_unsupported`) derived from wiki policy
-	- Deterministic formatting strictness rules (e.g., tasks that require exact `Yes`/`No` message bodies) derived from wiki policy
+* grounded task frame,
+* deterministic search hints,
+* replayable flow plan.
 
-## 5. Core Methodological Processes
+### D. Deterministic Execution
 
-## 5.1 Process A — Proactive Information Acquisition
+Purpose:
 
-**Goal**: proactively obtain the minimum sufficient set of facts and rules to solve tasks deterministically.
+* execute the flow,
+* record immutable trace,
+* distill outcome into reusable feedback.
 
-### A1. Wiki rule acquisition
+Outputs:
 
-- Parse and compress wiki content into a short, precise policy representation.
-- The representation must be:
-	- Minimal (only constraints and definitions needed for tasks).
-	- Precise (lossless for constraints).
-	- Referential (each rule should have a source page reference for traceability).
+* run trace,
+* verified run distill,
+* new feedback for A/B.
 
-Examples of rule families to extract:
+---
 
-- **Access control** (e.g. salary visibility restrictions).
-- **Workload definition**: workload is derived from project registry time-slice allocations.
-- **Skills & wills scale**: 1–10; “strong” threshold is interpreted consistently (e.g. `>= 7`).
-- **Entity field semantics** (deal phases, project status, time entry statuses).
-- **Response formatting** (e.g. `outcome`, `links` fields).
-
-### A2. API capability acquisition
+## 3. Self-Adaptive Loops
 
-- Build an internal “API composition map”:
-	- Which endpoint returns which entity type.
-	- Which fields are authoritative.
-	- Which endpoints must be chained to answer typical queries.
+The framework operates as three nested self-adaptive loops.
 
-### A3. Deterministic snapshot acquisition
+### Inner Loop — Run-Time Optimization
 
-- Use paging to collect stable local snapshots for deterministic processing (Employees, customers, projects, and optionally time entries).
-- Use data prefetching to avoid repeated remote calls inside the same task/round.
-- Data snapshot is stored in SQL database by using streaming (if external API is huge to load in memory) and becomes the default source for computation.
+Scope: C + D
+Frequency: every task run
 
-System boundary / single source of truth:
+Responsibilities:
 
-- **SQL snapshot is the authoritative data source during solving**.
-- `execute_and_validate()` is allowed to mix snapshot + on-demand fetch **only when the snapshot is insufficient** to resolve the task.
-	- Any on-demand fetch results must be persisted (or materialized) into SQL before being used in final computations.
-	- The benchmark data is assumed **static during a single task run**, so on-demand fetch does not break determinism within that task.
-- The wiki is treated as **immutable input during a single task run** (see `prd-api-acquisition.md` for digest handling and `prd-wiki-acquisition.md` for wiki
-  rules).
+* task grounding,
+* deterministic flow planning,
+* execution,
+* trace capture,
+* run-level distillation.
 
-**Output of Process A**:
+Objective:
 
-- Normalized entity tables in SQL.
-- A compact policy/constraint model in `policy.py`.
-- A compositional tool framework in `tools.py`.
-
-## 5.2 Process B - Building Execution Plan (algorithmic)
+* maximize task success,
+* minimize runtime cost,
+* preserve policy and replayability constraints.
 
-**Goal**: convert an untrusted natural-language task into a strict, machine-executable `Plan` that encodes:
-
-- an algorithmic solution (what tool calls + what SQL computations)
-- a response construction template (what outcome + which links are allowed)
-- a proof carrier (commitments + policy references) sufficient for `execute_and_validate()` to verify correctness after execution
-
-Trust boundary:
-
-- Process B is LLM-driven and **untrusted**.
-- Process B must not contribute evidence.
-	- All evidence is produced later by Process C when the validator executes tool calls, persists payloads to SQL, runs SQL, and fills outputs.
-
-Inputs:
-
-- `InputTask.text`
-- `DataDefinitionContext` (DDL view of the available entity tables/columns)
-- compiled policy/constraints (from Process A)
-- compositional tool facade (from Process A)
-- `ExperienceStore` (optional) for adoptable planning rules
-
-Output:
-
-- `Plan` (exactly the Pydantic model in `agent/abstract.py`)
-
-### B1. Plan as algorithmic solution + proof carrier
-
-A `Plan` is the algorithmic solution to produce a valid response under policy:
+### Outer Loop — Design-Time Optimization
 
-- **Solution**:
-	- an ordered set of tool calls (`execution_trace.calls`)
-	- an ordered set of SQL computations (`facts` as `FactQuery`)
-	- a strict response construction template (`response_template`)
-- **Proof carrier**:
-	- `policy_refs` identifies which policy clauses are intended to justify the decision
-	- `commitments` declare proof obligations that Process C will verify after execution
+Scope: B
+Frequency: periodic or evidence-triggered
 
-Evidence restrictions (normative):
+Responsibilities:
 
-- `APICall.response`, `APICall.response_hash`, `APICall.error` must be empty in the Plan produced by `propose()`.
-- `FactQuery.output` must be empty in the Plan produced by `propose()`.
+* build or extend abstraction corpus,
+* induce and normalize abstraction candidates,
+* synthesize design IR,
+* compile artifacts,
+* verify artifacts,
+* promote verified design updates.
 
-### B2. Formal Plan schema (normative)
+Objective:
 
-The Plan schema is defined by `agent/abstract.py` and must satisfy:
+* improve reusable abstractions,
+* reduce runtime search complexity,
+* increase success without regressions.
 
-- `request`: the input task.
-- `execution_trace`:
-	- `calls`: ordered list of planned tool-level calls (`APICall`). Each item must include:
-		- `id`: stable step identifier (string)
-		- `tool`: tool facade name (must exist in `tools.py`)
-		- `args`: JSON object of tool arguments
-		- `expect`: optional expected result type identifier (for deterministic type-checking)
-		- `bind`: optional symbolic name under which Process C stores the tool result for later SQL/response steps
-	- `artifacts`: must be empty at propose-time (populated only by Process C).
-- `facts`: ordered list of SQL-only computations (`FactQuery`):
-	- `query`: SQL statement (read/derive)
-	- `inputs`: references to previous fact ids (for deterministic dependency ordering)
-	- `output`: must be empty at propose-time (populated only by Process C).
-- `response_template`: strict template describing:
-	- candidate `outcome` (or outcome selection rule)
-	- message formatting constraints
-	- link constraints (allowed kinds, inclusion/exclusion constraints)
-- `dry_run`:
-	- if `true`, Process C must validate permissions/parameters and render a response without executing writes.
-	- if `false`, Process C may execute writes after passing all guardrails.
-- `policy_refs`:
-	- `rules_ids` may be empty, but if present must refer to rules that exist in compiled policy.
-- `commitments`:
-	- list of proof obligations to be verified by Process C.
-	- `CommitmentKind` is intentionally extensible and may evolve.
+### Main Loop — Solution Optimization
 
-### B3. Planning algorithm (normative)
+Scope: A + loop orchestration
+Frequency: rare or strategic
 
-Process B must produce a plan that is executable and verifiable.
+Responsibilities:
 
-Required steps:
+* improve memory acquisition,
+* improve source interpretation,
+* improve domain distillation quality,
+* decide when outer-loop redesign is needed.
 
-- **B3.1 Interpret the task into a deterministic intent**
-	- Extract entity types, identifiers, dates, and whether writes are requested.
-	- If required inputs are missing and cannot be derived deterministically, the plan must target `none_clarification_needed` via `response_template`.
+Objective:
 
-- **B3.2 Select tool calls (tool-level, deterministic, minimal)**
-	- Tool calls must use the tool facade names and argument shapes.
-	- The plan should start with `whoami()` whenever authorization context is required.
-	- Paging must be planned deterministically (adoptable rules), e.g. `limit=5` with monotonic offsets.
-	- Disambiguation must be planned deterministically:
-		- if multiple plausible matches remain after deterministic narrowing, stop and plan a clarification outcome.
+* improve long-term system quality and adaptation capacity.
 
-- **B3.3 Select SQL computations (`FactQuery`)**
-	- Aggregation and final computations must be expressed in SQL (Process C executes SQL, not the LLM).
-	- Fact queries must be ordered and reference dependencies via `inputs`.
+---
 
-- **B3.4 Write safety planning (when writes exist)**
-	- A plan contains writes iff `execution_trace.calls` contains at least one tool call whose `tool` is classified as a write-capable tool by the compiled policy/tool facade.
-	- The Plan must not rely on a separate `writes` list; write intent is inferred from tool calls.
-	- The plan must include read-after-write verification steps when required by policy or by adoptable rules.
-	- The plan must be compatible with `dry_run=true` (i.e., validation can occur without executing writes).
+## 4. Initial Conditions
 
-- **B3.5 Response template planning**
-	- Specify message constraints and link constraints.
-	- Ensure the template is compatible with response-structure policy (outcome semantics + link rules).
+At the beginning of process A, the system has only:
 
-- **B3.6 Proof planning via commitments**
-	- Commitments must be sufficient for Process C to prove:
-		- trace integrity (calls executed in the declared order)
-		- policy compliance
-		- link grounding (links correspond to executed tool outputs)
-		- write safety (for writes)
-		- minimality (for non-`ok_answer` outcomes)
-	- Commitment kinds are dynamic and may evolve over time.
+* preinstalled general-purpose tools,
+* a URL pointing to a raw HTML page with benchmark rules and description.
 
-### B4. Adoptable planning rules mechanism (recommended)
+No benchmark-specific adapters, schemas, registries, or domain logic are assumed.
 
-Process B should use an experience-driven, adoptable set of planning rules. Examples aligned with `docs/test-cases.md`:
+The initial HTML page is treated as raw input. The system must first:
 
-- **Paging rule**: enforce `limit=5` and deterministic offset chaining until completion.
-- **Name-order fallback rule**: try both “Last First” and “First Last” when searching people.
-- **Query broadening/narrowing rule**: if a narrow query yields no results, retry with a broader paraphrase.
-- **Clarify-on-ambiguity rule**: if multiple plausible matches remain, plan a clarification outcome instead of guessing.
-- **Read-after-write rule**: when mutating state, include deterministic postcondition checks (e.g., re-fetch project/team).
-- **Literal-execution rule**: execute user-requested values literally when policy allows, even if they look contradictory.
+1. fetch it,
+2. extract raw text blocks and links,
+3. semantically interpret what source groups may exist,
+4. discover additional documents from that interpretation.
 
-These rules must remain deterministic at execution time: Process C may apply them only as declared by the plan (no hidden retries).
+---
 
-## 5.3 Process C — Entity Constrained Execution & Validation
+## 5. Function Classes
 
-**Goal**: ensure every produced decision is compliant with explicit and implicit constraints, using deterministic validation.
+The system uses three function classes.
 
-### C1. Entity modeling
+### Class 1 — Ready-Made General-Purpose Deterministic Functions
 
-- Each API payload is converted to a Pydantic model.
-- Validation must cover:
-	- **Schema constraints**: required fields, types, enums.
-	- **Normalization constraints**: canonical casing, ID formats, sorted lists where required.
+Trusted infrastructure available before domain discovery.
 
-### C2. Cross-entity constraints
+Examples:
 
-- Enforce invariants derived from wiki and benchmark conventions:
-	- Access constraints (deny when caller lacks permission).
-	- Domain constraints (e.g. deal phases set; time entry status lifecycle constraints).
-	- Aggregation constraints (workload is computed from project time slices, not from time logs).
+* fetch raw HTML and documents,
+* structural schema validation,
+* template-based code compilation,
+* registry persistence,
+* deterministic verification harness,
+* deterministic executor,
+* deterministic promotion and persistence.
 
-### C3. SQL persistence and reproducibility
+These are part of the fixed bootstrap kernel.
 
-- Persist all entities and derived relations:
-	- Raw entities: employees/customers/projects/time entries/wiki pages.
-	- Derived tables/views: workload per employee, project-team join, skill/will index.
-- Persist the full evidence trail needed to re-run validation deterministically.
+### Class 2 — Deterministic Abstract Placeholders
 
-### C4. Decision validation
+Generic engines with fixed control logic, but domain semantics are provided later through design-time artifacts and specs.
 
-`execute_and_validate(task, plan)` must check:
+Examples:
 
-- Plan execution trace consistency (tools invoked as declared, inputs/outputs recorded).
-- Correctness of derived computations (SQL queries are the only allowed aggregation engine).
-- Response format compliance (outcome + links types) according to the policy acquired from the wiki.
-	- This includes strictness requirements for message text where the policy demands it.
-	- This includes deterministic outcome-selection rules (e.g., when to return `ok_not_found` vs `none_clarification_needed`).
+* normalize discovered sources,
+* normalize domain memory,
+* retrieve memory slice,
+* build or extend abstraction corpus,
+* normalize abstraction proposals,
+* normalize design IR,
+* generate coverage cases,
+* update regression cases,
+* normalize task grounding,
+* resolve runtime search hints,
+* build deterministic flow plans,
+* normalize post-run distillation.
 
-**Output of Process C**:
+These functions do not contain hardcoded business logic. They become meaningful only after process B provides specs, registries, and typed artifacts.
 
-- `decision` with:
-	- `ok` flag
-	- validated response
-	- deterministic diagnostics (codes + structured context)
+### Class 3 — Non-Deterministic LLM Functions
 
-## 5.4 Process D — Task Solving Optimization
+LLM-owned semantic synthesis.
 
-**Goal**: improve task success rate and determinism by using benchmark feedback as an objective signal.
+Responsibilities:
 
-Optimization is explicitly split into two loops:
+* discover source groups from raw HTML,
+* distill domain memory,
+* induce abstraction proposals,
+* synthesize design-time IR,
+* ground task text into typed labels,
+* distill run outcomes.
 
-### D1. Run-time optimization (inner loop)
+Constraint:
 
-- Trigger: after each task attempt (or after a scored test task), produce a patch that improves subsequent tasks.
-- Allowed changes at run-time:
-	- Update *experience* only (structured patches/heuristics), not core policies.
-	- Adjust acquisition strategy (prefetch scope, query expansion, disambiguation prompts).
-	- Tighten validation templates and response formatting.
+* LLM outputs typed artifacts only.
+* LLM does not emit trusted runtime logic directly.
 
-### D2. Design-time optimization (outer loop)
+---
 
-- Trigger: after a full benchmark run.
-- Allowed changes:
-	- Modify `tools.py` composition logic.
-	- Modify `policy.py` entity models and deterministic constraints.
-	- Add/adjust SQL schema, indexes, derived views.
-	- Add regression tests based on observed failure diagnostics.
+## 6. Core Architecture
 
-### D3. Objective and metrics
+### Small Kernel
 
-Primary success metric:
+A minimal trusted bootstrap core.
 
-- Benchmark score (task-level correctness).
+Contains:
 
-Secondary metrics:
+* fetch/load tools,
+* structural validation,
+* deterministic template-based compiler,
+* registry persistence.
 
-- Determinism: variance of outputs across reruns given identical snapshots.
-- Tool efficiency: number of external API calls per task.
-- Validation quality: fraction of failures caught before submission.
-- Coverage: fraction of tasks solvable from local SQL snapshot without extra remote calls.
+The kernel is fixed, small, and domain-agnostic.
 
-## 6. Preparation and Improvement Phases
+### Meta-Interpreters
 
-## 6.1 Acquisition Phase (pre-competition)
+Trusted deterministic engines that interpret policies and specs.
 
-**Goal**: build the initial deterministic substrate.
+Contains:
 
-Deliverables:
+* generic verifier,
+* generic executor,
+* generic promotion engine.
 
-- `policy.py`: policies + Pydantic models + constraint checks.
-- `tools.py`: compositional API tools + paging snapshot acquisition + caching.
-- SQL database with entity snapshots and derived views.
+Meta-interpreters do not encode domain logic themselves. They execute fixed algorithms over typed specs and compiled artifacts.
 
-Functional form:
-Acquisition(Wiki, API, Tasks) -> policy.py, tools.py, SQL schema + initial snapshots
+### LLM-Synthesized Artifacts
 
-## 6.2 Run-time Phase (during competition)
+Produced in process B and consumed by deterministic layers.
 
-**Goal**: improve performance within a run without human intervention.
+Includes:
 
-Mechanism:
+* source inventory drafts,
+* domain memory drafts,
+* abstraction drafts,
+* design IR,
+* search hints,
+* templates,
+* primitive candidates.
 
-- Use the benchmark’s per-task feedback to update an `ExperienceStore`.
-- Experience must remain non-sensitive and non-authoritative:
-	- store diagnostics codes and safe guidance templates.
-	- do not store raw confidential entity data.
+The kernel and meta-interpreters interpret these artifacts after deterministic normalization and verification.
 
-## 6.3 Design-time Phase (between runs)
+---
 
-**Goal**: incorporate lessons learned into code and tests.
+## 7. Design-Time Extension Mechanism for Class 2
 
-Mechanism:
+This is the key mechanism of the system.
 
-- Offline analysis of:
-	- validator diagnostics
-	- tool traces
-	- failure clusters by task families
-- Produce code changes and regression suites.
+### Principle
 
-## 7. Core Control Flow and Contracts
+Class 2 functions are not rewritten manually and are not replaced by arbitrary generated code. Instead, they are extended by typed design-time artifacts
+synthesized in process B.
 
-## 7.1 Plan/Decision dependency
+### Extension Pattern
 
-- `plan = propose(task, experience)`
-	- Output is **strict**, machine-executable instructions.
-	- Plan contains a strict schema (see Process B) and is treated as **untrusted** until `execute_and_validate()` executes and verifies it.
+Deterministic behavior is defined as: **generic engine + validated typed spec + canonical state**
+Not: **raw LLM-generated code**
 
-- `decision = execute_and_validate(task, plan)`
-	- Executes the plan deterministically.
-	- **Validator executes tool calls itself**: the LLM only outputs instructions; it does not supply data values that are treated as evidence.
-	- Validates policy/security constraints.
-	- Emits a response in the required structure.
+### How Extension Happens
 
-### 7.1.1 Formal Plan schema (normative)
+#### Step 1 — Bootstrap from Static Semantics
 
-The normative Plan schema is defined in **Process B** and implemented as a Pydantic model in `agent/abstract.py`.
+Before any runtime evidence exists, the system has:
 
-### 7.1.2 Tool execution trace (normative)
+* canonical domain memory,
+* endpoint specs,
+* ontology,
+* alias maps,
+* task patterns.
 
-For every executed tool call, `execute_and_validate()` must record a trace entry with:
+From this, process B synthesizes initial:
 
-- tool name + arguments
-- success/failure outcome
-- stable identifiers and/or hashes of the returned payload
+* primitive candidates,
+* search hints,
+* templates.
 
-This trace is the evidence base used by `execute_and_validate()` when producing diagnostics.
+These create a seed design structure.
 
-### 7.1.3 SQL allowances (normative)
+#### Step 2 — Seed Abstraction Corpus
 
-- SQL is the only allowed aggregation/derivation engine for final computations.
-- SQL steps may include:
-	- read-only `SELECT`
-	- derived-table creation for deterministic computation (`derive` steps; e.g. `CREATE TEMP TABLE ... AS SELECT ...`, `INSERT INTO derived_* ... SELECT ...`).
-- Schema evolution is not part of the run-time contract:
-	- the session DB schema is recreated per task run, and derived tables are owned by the validator runtime.
+Because runtime traces are initially empty, the first abstraction corpus is built from:
 
-## 7.2 Double-loop model
+* task patterns,
+* domain rules,
+* endpoint contracts,
+* seed primitive candidates,
+* templates.
 
-- Inner loop: repeated propose/validate rounds for the same task with updated experience.
-- Outer loop: post-run code iteration over `policy.py` and `tools.py`.
+This corpus is hypothesis-driven, not evidence-driven.
 
-## 7.3 Determinism boundary
+#### Step 3 — Runtime Evidence Appears
 
-- Only `propose()` is non-deterministic.
-- All the following must be deterministic:
-	- Tool execution engine and paging strategy.
-	- SQL transformations.
-	- Pydantic validation and policy checks.
-	- Response formatting rules.
+After first runs, the system gets:
 
-Determinism assumptions:
+* grounded task frames,
+* flow plans,
+* run traces,
+* run distills.
 
-- Benchmark data is static within a single task run.
-- Wiki is immutable within a single task run.
+#### Step 4 — Corpus Extension
 
-## 8. Security and Compliance Requirements
+The seed abstraction corpus is extended with observed evidence:
 
-- Enforce role-based access constraints; deny restricted data with `denied_security`.
-- Never expose confidential fields (e.g. exact salaries) to unauthorized users.
-- Treat wiki editing and system updates as privileged actions; validate caller authorization.
-- Ensure outputs are free of sensitive leakage when returning `error_internal`.
+* real fragment signatures,
+* usage counts,
+* success/failure links,
+* repair patterns.
 
-Authorization context (normative):
+#### Step 5 — Design-Time Refinement
 
-- The authorization context comes exclusively from `who_am_i()`.
-- For every allow/deny decision, validator must be able to produce a proof bundle containing:
-	- the relevant identity fields from `who_am_i()` used by the rule
-	- the specific rule reference(s) (wiki source page + anchor, or the compiled policy rule ID)
-	- the evaluated predicate result (allow/deny)
+Process B uses the extended corpus to:
 
-Write operations guardrails (normative):
+* refine abstraction proposals,
+* synthesize improved design IR,
+* compile new artifacts,
+* verify and promote updates.
 
-- Write actions are executed by the validator during plan execution (never by `propose()` directly).
-- Validator must implement a dry-run mode:
-	- validate intent-class + permissions + parameter shapes without applying the mutation.
-- Validator must refuse writes that do not match an allowed operation class derived from the wiki policy (prompt-injection resistance).
-	- Task text is treated as untrusted input; only explicit allowed intents may produce writes.
+This is how Class 2 functions gain domain-specific power while remaining deterministic.
 
-## 9. Acceptance Criteria
+---
 
-- **A1 (Acquisition)**: system can build a local SQL snapshot of core entities using paged API calls and can answer representative query families using only SQL
-  transformations.
-- **B1 (Validation)**: invalid plans or policy violations are rejected deterministically with structured diagnostics.
-- **B2 (Response contract)**: every response is valid and uses only allowed format and structure.
-- **C1 (Run-time optimization)**: after receiving a failing evaluation, the system can generate an experience patch that changes subsequent plans without
-  modifying authoritative policies.
-- **C2 (Design-time optimization)**: diagnostics are sufficient to reproduce failures and add regression tests that prevent recurrence.
+## 8. Runtime Safety and Determinism
 
-## 10. ExperienceStore and patch governance (normative)
+The runtime layer must remain deterministic.
 
-Experience is an optimization artifact and must not become an uncontrolled policy override.
+This requires:
 
-### 10.1 Patch taxonomy (based on `rules/evolution-of-patches.md`)
+* task grounding to produce typed control artifacts only,
+* deterministic normalization after every LLM-produced runtime artifact,
+* runtime flow construction as constrained search over allowed primitives,
+* execution through compiled bindings only,
+* immutable traces for every run.
 
-Experience patches observed in practice cluster into these categories:
+No unrestricted runtime code generation is allowed.
 
-- **Rule patches** (`add_rule`, `remove_rule`, `consolidate_rules`)
-	- permission rules (e.g., salary confidentiality, role-derived permissions)
-	- response-contract rules (strict `links` behavior per outcome)
-	- disambiguation rules (multiple matches → clarification)
-	- operational rules (fail-fast after consecutive API errors)
-- **Tool patches** (`patch_tool`, `update tool_patch`)
-	- parameter name fixes (e.g., `employee` vs `id`)
-	- required parameters (e.g., time logging requires specific fields)
-	- endpoint semantics (e.g., replace-vs-add behavior)
-	- per-endpoint constraints (e.g., pagination limits)
-- **Prompt/process patches** (base algorithm restructuring, phase ordering)
-	- enforce stable solving order: context gathering → permission check → retrieval → formatting
+---
 
-### 10.2 Consolidation and conflict resolution
+## 9. Artifact Flow
 
-The patch stream contains duplicates and contradictions; therefore ExperienceStore must support:
+### From A to B
 
-- deterministic de-duplication (same intent/signature)
-- consolidation of overlapping patches into a single canonical guidance
-- explicit conflict resolution with **newer patch priority** when patches contradict (as reflected by the consolidation notes in `evolution-of-patches.md`)
+Process A produces:
 
-### 10.3 Governance constraints
+* source inventory,
+* canonical domain memory,
+* ontology,
+* alias maps,
+* failure catalog.
 
-- Experience may influence `propose()` behavior (tool selection, search strategy, formatting templates).
-- Experience must not weaken validator constraints:
-	- it cannot bypass access control
-	- it cannot relax response contract validation
-	- it cannot convert a denied action into an allowed write
-- Validator must be able to report whether an Experience patch influenced a plan decision (auditability).
+These become the semantic substrate for process B.
 
-## 11. Evaluation and regression testing
+### Within B
 
-- Benchmark evaluation is external.
-- Minimal automated regression suite should be able to:
-	- run a selected set of benchmark tasks end-to-end against the external API
-	- store and compare evaluator outcomes/scores for regressions
-	- use recorded execution traces to reproduce failures deterministically when the API data is unchanged
+Process B produces:
 
-## 12. Operational constraints
+* abstraction candidates,
+* search hints,
+* templates,
+* canonical design IR,
+* compiled artifacts,
+* promoted registries.
 
-- No explicit budgets/limits are assumed by the methodology.
-- The validator must still prevent non-termination (e.g., fail-fast policies after repeated API errors) to ensure bounded runtime.
+### From B to C
+
+Process C consumes:
+
+* primitive registry,
+* search hints,
+* grammar profiles,
+* ontology,
+* alias maps.
+
+### From C/D back to A/B
+
+Processes C and D produce:
+
+* grounded task frames,
+* flow plans,
+* run traces,
+* run distills.
+
+These become feedback signals for future improvement.
+
+---
+
+## 10. Promotion and Control Rules
+
+A system update must not become active just because it was generated.
+
+Promotion requires:
+
+* deterministic normalization,
+* deterministic verification,
+* explicit pass criteria,
+* no regression against the frozen regression set,
+* persistence with versioning and provenance.
+
+Promotion and persistence are distinct:
+
+* promotion is a semantic state transition,
+* persistence is low-level storage of the resulting active state.
+
+---
+
+## 11. Theoretical Basis for Balancing Primitives vs Flow
+
+The framework is based on a **multi-level constrained optimization** model:
+
+* at process **B**, the system selects and improves the primitive library;
+* at process **C**, the system builds runtime flows through deterministic search over an allowed list.
+
+Core principle:
+
+* a library that is too **small** produces long, fragile, and expensive flows;
+* a library that is too **large** increases branching factor, complicates selection, and degrades search quality.
+
+Therefore, the system must optimize **total solution complexity**, not only flow length or only library size.
+
+The balance must consider:
+
+* size and complexity of `PrimitiveRegistry`,
+* average `FlowPlan` length,
+* runtime execution cost,
+* ambiguity in primitive choice,
+* coverage across task classes.
+
+Design-time decisions must follow this rule:
+
+**A new primitive is added only if it reduces total solution complexity over the task distribution**, not merely because it shortens one isolated scenario.
+
+Implications:
+
+* reusable patterns are promoted into primitives;
+* one-off or overly narrow compositions remain at the flow level;
+* runtime search operates under profile constraints (`GrammarProfileRegistry`) rather than the full primitive universe.
+
+This balance is a first-class design objective of the outer loop.
+
+---
+
+## 12. Statistical Check as Feedback Signal
+
+The framework must use **statistical check** as a formal feedback signal for all self-adaptive loops.
+
+Primary signal sources:
+
+* `RunTrace`
+* `RunDistill`
+* `DesignVerificationReport`
+* aggregated multi-run outcomes
+
+Statistical check must evaluate not only single runs, but also **accumulated behavior across task classes**.
+
+Minimum metrics:
+
+* success rate,
+* average score,
+* cost per run,
+* violation rate,
+* average flow length,
+* reuse frequency of new primitives,
+* regression stability,
+* performance on rare or hard task classes.
+
+Use by loop:
+
+### Inner Loop
+
+Uses run-level and short-window statistics for:
+
+* selecting more stable flows,
+* ranking hints,
+* constraining repair strategies.
+
+### Outer Loop
+
+Uses batch-level statistics for:
+
+* deciding which abstraction candidates truly improve the system,
+* pruning, merging, or extracting library elements,
+* updating search hints and templates.
+
+### Main Loop
+
+Uses aggregate statistics across task classes for:
+
+* deciding whether the system is improving globally,
+* checking whether rare or long-tail scenarios are degrading,
+* determining whether memory acquisition or design-time redesign must be revisited.
+
+Critical rule:
+
+* no system update is promoted from a single “good” result;
+* promotion requires **stable improvement without regression** according to statistical check.
+
+Statistical check is therefore not just an auxiliary metric. It is a **formal verifier signal for system change**.
+
+---
+
+## 13. Key Constraints
+
+The framework must enforce:
+
+* no human intervention after launch,
+* no trusted business logic generated directly into runtime,
+* all runtime execution must be replayable,
+* all promoted changes must pass deterministic verification,
+* all LLM outputs must be normalized into canonical typed artifacts,
+* design-time learning must improve the system without uncontrolled drift.
+
+---
+
+## 14. Codex CLI client plan (LLM execution layer)
+
+PRD requires using Codex CLI for LLM calls (PRD §0). Process A depends on LLM calls that must produce typed outputs.
+
+### 14.1 Goal
+
+Implement a client that runs:
+
+- `codex exec --output-schema <schema_path>`
+
+as a subprocess and returns a validated Pydantic object.
+
+### 14.2 Contract
+
+For each LLM function (e.g., `discover_source_inventory`, `distill_memory`):
+
+- build a prompt (including only necessary context)
+- provide the JSON Schema path corresponding to the Pydantic model
+- parse stdout as JSON
+- validate into Pydantic model
+
+### 14.3 Guardrails
+
+- **Timeouts**:
+	- hard timeout per call
+	- ensure subprocess termination on timeout
+- **Retry + self-correction**:
+	- retry only on actionable failures (non-zero exit, JSON parse error, Pydantic validation error)
+	- include validation error summaries in the repair prompt
+	- cap attempts and persist attempt history for provenance
+- **Asynchrony**:
+	- use async subprocess execution (`asyncio`)
+	- enforce concurrency limits (semaphore)
+	- cancellation must propagate to subprocess
+
+### 14.4 Provenance
+
+Persist per-call metadata:
+
+- schema path + schema hash
+- prompt hash
+- attempt count and error summaries
+- resulting typed artifact hash
+
+## 15. Success Criteria
+
+The framework is successful if it can:
+
+1. bootstrap from only:
+	
+	* a raw HTML entry page URL,
+	* preinstalled general-purpose tools;
+
+2. autonomously construct:
+	
+	* canonical domain memory,
+	* design-time IR,
+	* compiled artifacts,
+	* runtime plans;
+
+3. execute tasks without human-written domain adapters;
+
+4. accumulate reusable feedback and improve over time;
+
+5. keep runtime deterministic while design-time evolves.
+
+---
+
+## 16. Non-Goals
+
+This framework does not aim to:
+
+* rely on manual API adapters,
+* rely on manual curation of benchmark-specific logic,
+* allow unrestricted runtime code generation,
+* depend on a human reviewer for normal operation.
+
+---
+
+## 17. Final Product Definition
+
+The product is a **self-adaptive autonomous framework** that combines:
+
+* a small trusted kernel,
+* deterministic meta-interpreters,
+* LLM-based semantic synthesis,
+* typed design-time artifacts,
+* deterministic runtime planning and execution,
+* multi-level feedback-driven improvement,
+
+to solve unknown-in-advane-API benchmark-style tasks without human participation.
