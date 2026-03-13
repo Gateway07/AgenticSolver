@@ -18,8 +18,8 @@ and execute logic in <PromptCode/> XML tag.
 </PromptCode>
 ```
 
-Where <PromptCode> is root tag, multiple <Module> would include imported PromptCode modules and single <Main> is entry point module with main() function which
-is the most important in the logic flow.
+Where `<PromptCode>` is root tag, multiple `<Module>` would include imported PromptCode modules and single `<Main>` is entry point module with main() function
+which is the most important in the logic flow.
 [PromptCode] is a structured pseudocode that explicitly defines logical steps to solve a given task. It is a hybrid of Python programming and natural
 language. It includes Pydantic classes and function definitions with main code (see main() function).
 
